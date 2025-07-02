@@ -193,3 +193,32 @@ class TestProductModel(unittest.TestCase):
         self.assertEqual(found.count(), count)
         for product in found:
             self.assertEqual(product.category, category)
+
+    def test_repr(self):
+        """It should return a string  of the Product"""
+        Product = ProductFactory()
+        Product.id = 123
+        expected = f"<Product {Product.name} id=[{Product.id}]>"
+        self.assertEqual(repr(Product), expected)
+
+    def test_update_a_product_without_ID_field(self):
+        """It should raise an error when ID fied is empty"""
+        product = ProductFactory()
+        product.id = None
+        with self.assertRaises(DataValidationError) as context:
+            product.update()
+        self.assertEqual(str(context.exception), "Update called with empty ID field")    
+
+    def test_deserialize_a_product_without_boolean_value(self):
+        """It should raise a DataValidationError due to non-boolean 'available'"""
+        data = {
+        "name": "",
+        "description": "",
+        "price": "",
+        "available": "yes",  
+        "category": ""
+        }
+        product = ProductFactory()
+        with self.assertRaises(DataValidationError) as context:
+            product.deserialize(data)
+        self.assertIn("Invalid type for boolean [available]:", str(context.exception))
