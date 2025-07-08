@@ -30,6 +30,7 @@ from decimal import Decimal
 from service.models import Product, Category, db
 from service import app
 from tests.factories import ProductFactory
+from unittest.mock import patch, MagicMock
 
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql://postgres:postgres@localhost:5432/postgres"
@@ -40,6 +41,10 @@ DATABASE_URI = os.getenv(
 #  P R O D U C T   M O D E L   T E S T   C A S E S
 ######################################################################
 # pylint: disable=too-many-public-methods
+
+class DataValidationError(Exception):
+    """Used for an data validation errors when deserializing"""
+
 class TestProductModel(unittest.TestCase):
     """Test Cases for Product Model"""
 
@@ -212,13 +217,65 @@ class TestProductModel(unittest.TestCase):
     def test_deserialize_a_product_without_boolean_value(self):
         """It should raise a DataValidationError due to non-boolean 'available'"""
         data = {
-        "name": "",
-        "description": "",
-        "price": "",
+        "name": "Apple",
+        "description": "Test Description",
+        "price": "0.00",
         "available": "yes",  
-        "category": ""
+        "category": "FOOD"
         }
         product = ProductFactory()
         with self.assertRaises(DataValidationError) as context:
             product.deserialize(data)
         self.assertIn("Invalid type for boolean [available]:", str(context.exception))
+
+
+    def test_deserialize_success(self):
+        """Test successful deserialization with valid data"""
+        product = ProductFactory()
+        result = product.deserialize(self)
+        
+        self.assertEqual(result.name, "Test Product")
+        self.assertEqual(result.description, "Test Description")
+        self.assertEqual(result.price, Decimal("0.00"))
+        self.assertEqual(result.available, True)
+        self.assertEqual(result.category, Category.UNKNOWN)
+        self.assertEqual(result, product) 
+
+    def test_deserialize_with_invalid_category_raises_attribute_error(self):
+        """Test that invalid category raises DataValidationError from AttributeError"""
+        data = {
+        "name": "Test Product",
+        "description": "Test Description",
+        "price": "0.00",
+        "available": True,
+        "category": "INVALID_CATEGORY"
+    }
+        
+        product = ProductFactory()
+        with self.assertRaises(DataValidationError) as context:
+            product.deserialize(data)
+        
+        self.assertIn("Invalid attribute:", str(context.exception))
+        self.assertIn("INVALID_CATEGORY", str(context.exception))
+        
+        self.assertIsInstance(context.exception.__cause__, AttributeError)
+    
+    @patch('service.models.logger')
+    def test_find_by_price_with_multiple_results(self, mock_logger):
+        """Test find_by_price when multiple products have the same price"""
+        mock_query = MagicMock()
+        mock_filter = MagicMock()
+        mock_query.filter.return_value = mock_filter
+    
+        price = Decimal("0.00")
+        expected_products = [MagicMock(), MagicMock(), MagicMock()]
+        
+        with patch.object(Product, 'query', mock_query):
+            mock_filter.return_value = expected_products
+            
+            result = Product.find_by_price(price)
+        
+            mock_logger.info.assert_called_once_with("Processing price query for %s ...", price)
+            mock_query.filter.assert_called_once_with(Product.price == price)
+            self.assertEqual(result, expected_products)
+            self.assertEqual(len(result), 3)
