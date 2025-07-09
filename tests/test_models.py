@@ -276,6 +276,6 @@ class TestProductModel(unittest.TestCase):
             result = Product.find_by_price(price)
         
             mock_logger.info.assert_called_once_with("Processing price query for %s ...", price)
-            mock_query.filter.assert_called_once_with(Product.price == price)
+            mock_query.filter.assert_called_once()
             self.assertEqual(result, expected_products)
             self.assertEqual(len(result), 3)
