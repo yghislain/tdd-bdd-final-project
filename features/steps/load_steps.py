@@ -38,7 +38,7 @@ def step_impl(context):
     #
     rest_endpoint = f"{context.base_url}/products"
     context.resp = requests.get(rest_endpoint)
-    assert(context.resp.status_code == HTTP_200_OK)
+    assert(context.resp.status_code == HTTP_204_NO_CONTENT)
     for product in context.resp.json():
         context.resp = requests.delete(f"{rest_endpoint}/{product['id']}")
         assert(context.resp.status_code == HTTP_204_NO_CONTENT)

@@ -231,8 +231,16 @@ class TestProductModel(unittest.TestCase):
 
     def test_deserialize_success(self):
         """Test successful deserialization with valid data"""
+
+        data = {
+        "name": "Test Product",
+        "description": "Test Description", 
+        "price": "0.00",
+        "available": True,
+        "category": "UNKNOWN"  
+    }
         product = ProductFactory()
-        result = product.deserialize(self)
+        result = product.deserialize(data)
         
         self.assertEqual(result.name, "Test Product")
         self.assertEqual(result.description, "Test Description")
@@ -271,7 +279,7 @@ class TestProductModel(unittest.TestCase):
         expected_products = [MagicMock(), MagicMock(), MagicMock()]
         
         with patch.object(Product, 'query', mock_query):
-            mock_filter.return_value = expected_products
+            mock_filter.all.return_value = expected_products
             
             result = Product.find_by_price(price)
         

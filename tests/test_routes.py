@@ -32,6 +32,9 @@ from service import app
 from service.common import status
 from service.models import db, init_db, Product
 from tests.factories import ProductFactory
+from urllib.parse import quote_plus
+from unittest.mock import patch, MagicMock
+
 
 # Disable all but critical errors during normal test run
 # uncomment for debugging failing tests
@@ -172,8 +175,8 @@ class TestProductRoutes(TestCase):
     ######################################################################
 
     def get_product_count(self):
-        """save the current number of products"""
-        response = self.client.get(BASE_URL)
+        """get the current number of products"""
+        response = self.client.get("products/all")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.get_json()
         # logging.debug("data = %s", data)
@@ -224,20 +227,21 @@ class TestProductRoutes(TestCase):
         self.assertEqual(new_count, product_count - 1)
 
     def test_get_product_list(self):
-        """It should Get a list of Products"""
+        """It should Get a list of all Products"""
         self._create_products(5)
-        response = self.client.get(BASE_URL)
+        response = self.client.get("products/all")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.get_json()
         self.assertEqual(len(data), 5)
 
-    def test_query_by_name(self):
+    @patch('service.routes.app.logger')
+    def test_query_by_name(self, mock_logger) :
         """It should Query Products by name"""
         products = self._create_products(5)
         test_name = products[0].name
         name_count = len([product for product in products if product.name == test_name])
         response = self.client.get(
-            BASE_URL, query_string=f"name={quote_plus(test_name)}"
+            "/products/name", query_string=f"name={quote_plus(test_name)}"
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.get_json()
@@ -245,8 +249,14 @@ class TestProductRoutes(TestCase):
         # check the data just to be sure
         for product in data:
             self.assertEqual(product["name"], test_name)
+            self.assertIn("id", product)
+            self.assertIn("description", product)
+            self.assertIn("price", product)
+            self.assertIn("available", product)
+            self.assertIn("category", product)
 
-    def test_query_by_category(self):
+    @patch('service.routes.app.logger')
+    def test_query_by_category(self, mock_logger):
         """It should Query Products by category"""
         products = self._create_products(10)
         category = products[0].category
@@ -254,7 +264,7 @@ class TestProductRoutes(TestCase):
         found_count = len(found)
         logging.debug("Found Products [%d] %s", found_count, found)
         # test for available
-        response = self.client.get(BASE_URL, query_string=f"category={category.name}")
+        response = self.client.get("/products/category", query_string=f"category={category.name}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.get_json()
         self.assertEqual(len(data), found_count)
@@ -262,14 +272,15 @@ class TestProductRoutes(TestCase):
         for product in data:
             self.assertEqual(product["category"], category.name)
 
-    def test_query_by_availability(self):
+    @patch('service.routes.app.logger')
+    def test_query_by_availability(self, mock_logger):
         """It should Query Products by availability"""
         products = self._create_products(10)
         available_products = [product for product in products if product.available is True]
         available_count = len(available_products)        
         # test for available
         response = self.client.get(
-            BASE_URL, query_string="available=true"
+            "/products/available", query_string="available=true"
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.get_json()
