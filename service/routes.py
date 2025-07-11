@@ -19,6 +19,7 @@
 Product Store Service with UI
 """
 from flask import jsonify, request, abort
+from flask import Flask
 from flask import url_for  # noqa: F401 pylint: disable=unused-import
 from service.models import Product
 from service.common import status  # HTTP Status Codes
@@ -116,7 +117,7 @@ def get_products(product_id):
 # L I S T   A L L   P R O D U C T S
 ######################################################################
 
-@app.route("/products/all", methods=["GET"])
+@app.route("/products", methods=["GET"])
 def list_products_all():
     """Returns a list of Products"""
     app.logger.info("Request to list Products...")
@@ -144,53 +145,68 @@ def list_products_by_name():
 
 @app.route("/products/category", methods=["GET"])
 def list_products_by_category():
-    """Returns a list of Products by category"""
+    """Returns a list of Products filtered by name and category"""
     app.logger.info("Request to list Products...")
-    products = []
+
+    # Start with all products
+    products = Product.all()
+
+    # Get query parameters
     name = request.args.get("name")
     category = request.args.get("category")
+
+    # Filter by name
     if name:
-        app.logger.info("Find by name: %s", name)
-        products = Product.find_by_name(name)
-    elif category:
-        app.logger.info("Find by category: %s", category)
-        # create enum from string
-        category_value = getattr(Category, category.upper())
-        products = Product.find_by_category(category_value)
-    else:
-        app.logger.info("Find all")
-        products = Product.all()
+        app.logger.info("Filtering by name: %s", name)
+        products = [p for p in products if p.name == name]
+
+    # Filter by category
+    if category:
+        app.logger.info("Filtering by category: %s", category)
+        category_value = getattr(Category, category.upper(), None)
+        if category_value:
+            products = [p for p in products if p.category == category_value]
+
+    # Serialize and return results
     results = [product.serialize() for product in products]
     app.logger.info("[%s] Products returned", len(results))
-    return results, status.HTTP_200_OK
+    return jsonify(results), status.HTTP_200_OK
 
 @app.route("/products/available", methods=["GET"])
 def list_products_by_availability():
-    """Returns a list of Products by availability"""
+    """Returns a list of Products filtered by name, category, and availability"""
     app.logger.info("Request to list Products...")
-    products = []
+
+    # Start with all products
+    products = Product.all()
+
+    # Get query parameters
     name = request.args.get("name")
     category = request.args.get("category")
     available = request.args.get("available")
+
+    # Apply name filter
     if name:
-        app.logger.info("Find by name: %s", name)
-        products = Product.find_by_name(name)
-    elif category:
-        app.logger.info("Find by category: %s", category)
-        # create enum from string
-        category_value = getattr(Category, category.upper())
-        products = Product.find_by_category(category_value)
-    elif available:
-        app.logger.info("Find by available: %s", available)
-        # create bool from string
+        app.logger.info("Filtering by name: %s", name)
+        products = [p for p in products if p.name == name]
+
+    # Apply category filter
+    if category:
+        app.logger.info("Filtering by category: %s", category)
+        category_value = getattr(Category, category.upper(), None)
+        if category_value:
+            products = [p for p in products if p.category == category_value]
+
+    # Apply availability filter
+    if available:
+        app.logger.info("Filtering by availability: %s", available)
         available_value = available.lower() in ["true", "yes", "1"]
-        products = Product.find_by_availability(available_value)
-    else:
-        app.logger.info("Find all")
-        products = Product.all()
+        products = [p for p in products if p.available == available_value]
+
     results = [product.serialize() for product in products]
     app.logger.info("[%s] Products returned", len(results))
-    return results, status.HTTP_200_OK
+    return jsonify(results), status.HTTP_200_OK
+
 
 
 ######################################################################
